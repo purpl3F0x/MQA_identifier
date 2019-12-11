@@ -12,7 +12,13 @@ For example
 
 <br>
 
-**This project isn't related nor endorsed with MQA Ltd. and is made for purely educational purposes)**
+
+**Download latest release** [***here***](https://github.com/purpl3F0x/MQA_identifier/releases)
+
+<br>
+<br>
+
+*This project isn't related nor endorsed with MQA Ltd. and is made for purely educational purposes)*
 
 <br><br>
 >  Stavros Avramidis Never Settle & Keep Running
