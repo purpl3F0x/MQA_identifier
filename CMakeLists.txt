@@ -3,6 +3,8 @@ project(MQA_identifier)
 
 set(CMAKE_CXX_STANDARD 17)
 
+include_directories(${CMAKE_SOURCE_DIR}/libs)
+
 if (NOT (MSVC))
     set(CMAKE_CXX_FLAGS "-O3 -Wall -march=native -ffast-math")
 else (NOT (MSVC))
