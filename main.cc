@@ -18,7 +18,7 @@
 
 struct myUserData {
     int MQADetection = -1;      // -1 no mqa, 0 unsure, >0 bit where mqa is detected
-    unsigned originalSampleRAte = 0;
+    unsigned originalSampleRate = 0;
 };
 
 
@@ -47,7 +47,9 @@ auto identifier(const std::string &file) {
                   if (std::strncmp("MQAENCODER", comment, 10) == 0)
                       data->MQADetection = 0;
                   else if (std::strncmp("ORIGINALSAMPLERATE", comment, 18) == 0)
-                      data->originalSampleRAte = std::stoul(comment + 19);
+                      data->originalSampleRate = std::stoul(comment + 19);
+                  else if (std::strncmp("MQASAMPLERATE", comment, 13) == 0)
+                      data->originalSampleRate = std::stoul(comment + 14);
 
                   s = 128u;
               }
@@ -143,8 +145,8 @@ int main(int argc, char *argv[]) {
             default:
                 mqa_files++;
                 std::cout << "file is MQA (" << "on bit " << res.MQADetection << ")";
-                if (res.originalSampleRAte)
-                    std::cout << " Metadata Original SampleRate " << res.originalSampleRAte;
+                if (res.originalSampleRate)
+                    std::cout << " Metadata Original SampleRate " << res.originalSampleRate;
                 std::cout << "\n";
         }
     }
