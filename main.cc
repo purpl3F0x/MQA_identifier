@@ -53,6 +53,7 @@ auto identifier(const std::string &file) {
 
                   s = 128u;
               }
+              delete it;
           }
         },
         (void *) &result
@@ -66,12 +67,13 @@ auto identifier(const std::string &file) {
     drflac_read_pcm_frames_s32(pFlac, pFlac->totalPCMFrameCount, pSampleData);
 
     // At this point pSampleData contains every decoded sample as signed 32-bit PCM.
-    for (int p = 10; p < 32; p++) {
+    for (int p = 16; p < 17; p++) {
         uint64_t buffer = 0;
 
-        for (auto i = 0u; i < pFlac->sampleRate; i += 2) {
+        for (auto i = 0u; i < pFlac->sampleRate * 4; i += 2) {
             buffer |= ((pSampleData[i] ^ pSampleData[1 + i]) >> p) & 1u;
             if (buffer == 0xbe0498c88) { // <== MQA magic word
+                std::cout << i - 24 << "\n";
                 result.MQADetection = p;
                 return result;
             } else
@@ -91,7 +93,7 @@ int main(int argc, char *argv[]) {
 
 
     if (argc == 1) {
-        std::cout << "HINT: To use the tool provide files and directories as program arguments";
+        std::cout << "HINT: To use the tool provide files and directories as program arguments\n\n";
     }
 
     for (auto argn = 1; argn < argc; argn++) {
