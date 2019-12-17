@@ -1,89 +1,11 @@
-/**
- * @filename main.cc
- * @author Stavros Avramidis (@purpl3F0x)
- * @date 9/12/2019
- * @copyright 2019 Stavros Avramidis under Apache 2.0 License
- * @short Handy tool for identifying MQA files (This tool isn't related with MQA Ltd. and is made for purely educational purposes)
- */
 
-#include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
-#include <string>
-
-#define DR_FLAC_IMPLEMENTATION
-
-#include <dr_flac.h>
 
 
-struct myUserData {
-    int MQADetection = -1;      // -1 no mqa, 0 unsure, >0 bit where mqa is detected
-    unsigned originalSampleRate = 0;
-};
-
-
-/**
- * @short   Parses file for MQA data
- * @param   file filename to be parsed
- * @return  Returns the bit where MQA data are found
- */
-auto identifier(const std::string &file) {
-    myUserData result;
-    // Get metadata of the file, to try to see if there is an MQAENCODER vorbis comment
-    drflac *pFlac = drflac_open_file_with_metadata(
-        file.c_str(),
-        [](void *pUserData, drflac_metadata *pMetadata) {
-          auto data = (myUserData *) pUserData;
-          if (pMetadata->type == DRFLAC_METADATA_BLOCK_TYPE_VORBIS_COMMENT) {
-              auto *it = new drflac_vorbis_comment_iterator;
-              drflac_uint32 s = 128u;
-              drflac_init_vorbis_comment_iterator(it,
-                                                  pMetadata->data.vorbis_comment.commentCount,
-                                                  pMetadata->data.vorbis_comment.pComments);
-              while (it->countRemaining > 0) {
-                  char comment[128];
-                  std::strcpy(comment, drflac_next_vorbis_comment(it, &s));
-                  comment[s] = '\0';
-                  if (std::strncmp("MQAENCODER", comment, 10) == 0)
-                      data->MQADetection = 0;
-                  else if (std::strncmp("ORIGINALSAMPLERATE", comment, 18) == 0)
-                      data->originalSampleRate = std::stoul(comment + 19);
-                  else if (std::strncmp("MQASAMPLERATE", comment, 13) == 0)
-                      data->originalSampleRate = std::stoul(comment + 14);
-
-                  s = 128u;
-              }
-              delete it;
-          }
-        },
-        (void *) &result
-    );
-
-    // Just in case file isn't found
-    if (pFlac == nullptr)
-        return result;
-
-    auto pSampleData = (int32_t *) malloc((size_t) pFlac->totalPCMFrameCount * pFlac->channels * sizeof(int32_t));
-    drflac_read_pcm_frames_s32(pFlac, pFlac->totalPCMFrameCount, pSampleData);
-
-    // At this point pSampleData contains every decoded sample as signed 32-bit PCM.
-    for (int p = 16; p < 17; p++) {
-        uint64_t buffer = 0;
-
-        for (auto i = 0u; i < pFlac->sampleRate * 4; i += 2) {
-            buffer |= ((pSampleData[i] ^ pSampleData[1 + i]) >> p) & 1u;
-            if (buffer == 0xbe0498c88) { // <== MQA magic word
-                std::cout << i - 24 << "\n";
-                result.MQADetection = p;
-                return result;
-            } else
-                buffer = (buffer << 1u) & 0xFFFFFFFFFu;
-        }
-    }
-
-    drflac_close(pFlac);
-    return result;
-}
+#include "mqa_identifier.h"
 
 
 int main(int argc, char *argv[]) {
@@ -91,13 +13,13 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::string> files;
 
-
     if (argc == 1) {
-        std::cout << "HINT: To use the tool provide files and directories as program arguments\n\n";
+        std::cout
+            << "HINT: To use the tool provide files and directories as program arguments\n add -csv to export results on csv\n\n";
     }
 
     for (auto argn = 1; argn < argc; argn++) {
-        std::cout << argv[argn] << "\n";
+
         if (fs::is_directory(argv[argn]))
             for (const auto &entry : fs::directory_iterator(argv[argn])) {
                 if (fs::is_regular_file(entry) && (fs::path(entry).extension() == ".flac"))
@@ -127,35 +49,26 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Found " << files.size() << " file for scanning...\n\n";
 
+
     // Start parsing the files
     size_t count = 0;
-    size_t mqa_files = 0, not_sure = 0;
+    size_t mqa_files = 0;
+    std::cout << "  #\tEncoding\tName\n";
     for (const auto &file : files) {
-        std::cout << "(" << count++ << "/" << files.size() << ")  " << file << "\n";
-        std::cout << "\t";
-        auto res = identifier(file);
-        switch (res.MQADetection) {
-            case -1:
-                std::cout << "file isn't MQA\n";
-                break;
-
-            case 0:
-                not_sure++;
-                std::cout << "MQAENCODER reported in metadata but file doesn't appear to be MQA\n";
-                break;
-
-            default:
-                mqa_files++;
-                std::cout << "file is MQA (" << "on bit " << res.MQADetection << ")";
-                if (res.originalSampleRate)
-                    std::cout << " Metadata Original SampleRate " << res.originalSampleRate;
-                std::cout << "\n";
-        }
+        std::cout << std::setw(3) << ++count << "\t";
+        auto id = MQA_identifier(file);
+        if (id.detect()) {
+            if (id.originalSampleRate())
+                std::cout << "MQA " << id.originalSampleRate() / 1000 << "K\t";
+            else
+                std::cout << "MQA";
+            std::cout << fs::path(file).filename().string() << "\n";
+            mqa_files++;
+        } else
+            std::cout << "NOT MQA \t" << fs::path(file).filename().string() << "\n";
     }
 
     std::cout << "\n**************************************************\n";
     std::cout << "Scanned " << files.size() << " files\n";
     std::cout << "Found " << mqa_files << " MQA files\n";
-    std::cout << "Maybe " << not_sure << " more are MQA\n";
-
 }
