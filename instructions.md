@@ -8,7 +8,8 @@
  - type `cd Downloads` (or the location you downloaded the app)
 ![](https://i.imgur.com/hKOhgld.png)
 
-- `mqa_identifer.exe {paths to files or folders}...` for Windows or`./mqa_identifier` on OSX 
+- `mqa_identifer.exe {paths to files or folders}...` for Windows or`./mqa_identifier` on OSX.
+To get the path easly simple drag and from the file/folder to terminal.
  
  For example
 >  ` mqa_identifer.exe "E:\Music\Deep Purple - Machine Head\03 Pictures of Home.flac" "D:\Music\1000mods - Super Van Vacation (2011) [FLAC-CD]"`

@@ -15,6 +15,8 @@ For example
 
 **Download latest release** [***here***](https://github.com/purpl3F0x/MQA_identifier/releases)
 
+**More detailed instructions here ** [***here***](instructions.md)
+
 <br>
 <br>
 
