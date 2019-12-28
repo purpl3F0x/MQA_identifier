@@ -4,7 +4,7 @@ project(MQA_identifier)
 set(CMAKE_CXX_STANDARD 17)
 
 if (NOT (MSVC))
-    set(CMAKE_CXX_FLAGS "-O3 -Wall -march=native -ffast-math")
+    set(CMAKE_CXX_FLAGS "-O3 -Wall -static -ffast-math")
 
 else (NOT (MSVC))
     set(CMAKE_CXX_FLAGS "/O2")
@@ -14,6 +14,7 @@ endif ()
 set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG")
 
 find_library(FLAC++_LIBRARIES NAMES FLAC++ FLAC)
+find_library(OGG NAMES OGG)
 
 add_executable(${PROJECT_NAME} main.cc)
-target_link_libraries(${PROJECT_NAME} FLAC++ FLAC)
+target_link_libraries(${PROJECT_NAME} FLAC++ FLAC OGG)

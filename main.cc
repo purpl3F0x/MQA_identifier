@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
 
     if (argc == 1) {
         std::cout
-            << "HINT: To use the tool provide files and directories as program arguments\n add -csv to export results on csv\n\n";
+            << "HINT: To use the tool provide files and/or directories as program arguments\n\n";
     }
 
     for (auto argn = 1; argn < argc; argn++) {
