@@ -3,38 +3,45 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <vector>
 
 
 #include "mqa_identifier.h"
 
+namespace fs = std::filesystem;
+
+
+void recursiveScan(const fs::directory_entry &curDir, std::vector<std::string> &files) {
+    for (const auto &entry : fs::directory_iterator(curDir)) {
+        if (fs::is_regular_file(entry) && (fs::path(entry).extension() == ".flac"))
+            files.push_back(entry.path().string());
+
+        else if (fs::is_directory(entry))
+            recursiveScan(entry, files);
+    }
+}
+
 
 int main(int argc, char *argv[]) {
-    namespace fs = std::filesystem;
 
     std::vector<std::string> files;
 
     if (argc == 1) {
-        std::cout
-            << "HINT: To use the tool provide files and/or directories as program arguments\n\n";
+        std::cout << "HINT: To use the tool provide files and/or directories as program arguments\n\n";
     }
 
     for (auto argn = 1; argn < argc; argn++) {
 
         if (fs::is_directory(argv[argn]))
-            for (const auto &entry : fs::directory_iterator(argv[argn])) {
-                if (fs::is_regular_file(entry) && (fs::path(entry).extension() == ".flac"))
-                    files.push_back(entry.path().string());
+            recursiveScan(fs::directory_entry(argv[argn]), files);
 
-            }
-
-        else if (fs::is_regular_file(argv[argn]))
+        else if (fs::is_regular_file(argv[argn])) {
             if (fs::path(argv[argn]).extension() == ".flac")
                 files.emplace_back(argv[argn]);
             else
                 std::cerr << argv[argn] << " not .flac file\n";
+        }
 
-        else if (fs::is_empty(argv[argn]))
-            std::cerr << argv[argn] << " not file or directory\n";
     }
 
     // Flush error buffer (just to make sure our print is pretty and no error line get in between)
