@@ -59,9 +59,9 @@ int main(int argc, char *argv[]) {
         auto id = MQA_identifier(file);
         if (id.detect()) {
             if (id.originalSampleRate())
-                std::cout << "MQA " << id.originalSampleRate() / 1000 << "K\t";
+                std::cout << "MQA " << id.originalSampleRate() / 1000 << "K \t";
             else
-                std::cout << "MQA";
+                std::cout << "MQA\t\t";
             std::cout << fs::path(file).filename().string() << "\n";
             mqa_files++;
         } else
