@@ -1,6 +1,11 @@
+/**
+ * @file        main.cc
+ * @author      Stavros Avramidis (@purpl3F0x)
+ * @date        16/12/2019
+ * @copyright   2019 Stavros Avramidis under Apache 2.0 License
+ */
 
 #include <filesystem>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <vector>
@@ -11,6 +16,11 @@
 namespace fs = std::filesystem;
 
 
+/**
+ * @short Recurivly scan a directory for .flac files
+ * @param curDir directory to scan
+ * @param files vector to add the file paths
+ */
 void recursiveScan(const fs::directory_entry &curDir, std::vector<std::string> &files) {
     for (const auto &entry : fs::directory_iterator(curDir)) {
         if (fs::is_regular_file(entry) && (fs::path(entry).extension() == ".flac"))
@@ -66,7 +76,7 @@ int main(int argc, char *argv[]) {
         auto id = MQA_identifier(file);
         if (id.detect()) {
             if (id.originalSampleRate())
-                std::cout << "MQA " << id.originalSampleRate() / 1000 << "K \t";
+                std::cout << "MQA " << id.originalSampleRate() / 1000. << "K \t";
             else
                 std::cout << "MQA\t\t";
             std::cout << fs::path(file).filename().string() << "\n";

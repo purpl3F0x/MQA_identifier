@@ -12,10 +12,33 @@
 #include <cinttypes>
 #include <cstring>
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
 
 #include <FLAC++/decoder.h>
+
+const std::map<unsigned char, uint32_t> OriginalSampleRateTable = {
+    /* MQA 's encoded value - sample rate in Hz */
+
+    /* 1x Sample Rate */
+    {0b0000, 44100},
+    {0b0001, 48000},
+    /* 2x Sample Rate */
+    {0b1000, 88200},
+    {0b1001, 96000},
+    /* 4x Sample Rate */
+    {0b0100, 176400},
+    {0b0101, 192000},
+    /* 8x Sample Rate */
+    {0b1100, 352800},
+    {0b1101, 384000} /* ? */
+
+    /* ?? 16x Sample Rate ?? */
+    /* 2 bits left - probably 705.6K and 786K
+     * No recordings on those values so no worries
+     */
+};
 
 
 class MQA_identifier {
@@ -150,6 +173,24 @@ bool MQA_identifier::detect() {
                 ((static_cast<uint32_t>(s[0]) ^ static_cast<uint32_t>(s[1])) >> p) & 1u;  //static_cast for clang-tidy
             if (buffer == 0xbe0498c88) {        // MQA magic word
                 this->isMQA_ = true;
+
+                // Get Original Sample Rate
+                unsigned char orsf = 0;
+                for (auto m = 3u; m < 7; m++) { // Skip 2 bits nd get next 4
+                    auto cur = *(&s + m);
+                    auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> p) & 1u;
+                    orsf |= j << (6u - m);
+                }
+                try {
+                    if (decoder.original_sample_rate != 0
+                        && decoder.original_sample_rate != OriginalSampleRateTable.at(orsf))
+                        std::cerr << decoder.original_sample_rate << "\n";
+                    this->decoder.original_sample_rate = OriginalSampleRateTable.at(orsf);
+                } catch (std::exception &e) {
+                    std::cerr << e.what() << "\n";
+                }
+
+                // We are done return true
                 return true;
             } else
                 buffer = (buffer << 1u) & 0xFFFFFFFFFu;
