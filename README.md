@@ -10,10 +10,10 @@ Small tool to identify MQA encoding in *.flac* files.
 # 
 **Usage**
 
-```MQA_identifier {name_of_file.flac} or {name_of_folder_to_scan} ++```
+```./MQA_identifier {name_of_file.flac} or {name_of_folder_to_scan} ++```
 
 For example
-```MQA_identifier "C:\Music\Mike Oldfield - Tubular Bells\(01) [Mike Oldfield] Part One.flac" "C:\Music\Queen - News Of The World"```
+```./MQA_identifier "C:\Music\Mike Oldfield - Tubular Bells\(01) [Mike Oldfield] Part One.flac" "C:\Music\Queen - News Of The World"```
 
 <br>
 
