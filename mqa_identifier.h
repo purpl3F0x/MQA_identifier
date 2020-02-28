@@ -50,7 +50,7 @@ class MQA_identifier {
     uint32_t bps = 0;
     FLAC__uint64 decoded_samples = 0;
     std::vector<std::array<const FLAC__int32, 2>> samples;
-    std::string mqa_endoder;
+    std::string mqa_encoder;
     uint32_t original_sample_rate = 0;
 
     explicit MyDecoder(std::string file) : FLAC::Decoder::File(), file_(std::move(file)) {};
@@ -118,7 +118,7 @@ void MQA_identifier::MyDecoder::metadata_callback(const ::FLAC__StreamMetadata *
             const auto comment = reinterpret_cast<char *>(metadata->data.vorbis_comment.comments[i].entry);
 
             if (std::strncmp("MQAENCODER", comment, 10) == 0)
-                this->mqa_endoder =
+                this->mqa_encoder =
                     std::string(comment + 10, comment + metadata->data.vorbis_comment.comments[i].length);
 
             else if (std::strncmp("ORIGINALSAMPLERATE", comment, 18) == 0)
@@ -200,7 +200,7 @@ bool MQA_identifier::detect() {
 }
 
 std::string MQA_identifier::getMQA_encoder() const noexcept {
-    return this->decoder.mqa_endoder;
+    return this->decoder.mqa_encoder;
 }
 
 uint32_t MQA_identifier::originalSampleRate() const noexcept {
