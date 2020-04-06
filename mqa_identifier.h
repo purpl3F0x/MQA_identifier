@@ -18,27 +18,25 @@
 
 #include <FLAC++/decoder.h>
 
-const std::map<unsigned char, uint32_t> OriginalSampleRateTable = {
-    /* MQA 's encoded value - sample rate in Hz */
 
-    /* 1x Sample Rate */
-    {0b0000, 44100},
-    {0b0001, 48000},
-    /* 2x Sample Rate */
-    {0b1000, 88200},
-    {0b1001, 96000},
-    /* 4x Sample Rate */
-    {0b0100, 176400},
-    {0b0101, 192000},
-    /* 8x Sample Rate */
-    {0b1100, 352800},
-    {0b1101, 384000} /* ? */
-
-    /* ?? 16x Sample Rate ?? */
-    /* 2 bits left - probably 705.6K and 786K
-     * No recordings on those values so no worries
+/**
+ * Returns original Sample rate (in Hz) from waveform bytecode.
+ * @param c 4bit bytecode
+ * @return
+ */
+uint32_t OriginalSampleRateDecoder(unsigned c) {
+    if (c > 0b1111u) throw std::logic_error("Invalid bytecode");
+    /*
+     * If LSB is 0 then base is 44100 else 48000
+     * 3 MSB need to be rotated and raised to the power of 2 (so 1, 2, 4, 8, ...)
+     * output is base * multiplier
      */
-};
+    const uint32_t base = (c & 1u) ? 48000 : 44100;
+
+    const uint32_t multiplier = 1u << (((c >> 3u) & 1u) | (((c >> 2u) & 1u) << 1u) | (((c >> 1u) & 1u) << 2u));
+
+    return base * multiplier;
+}
 
 
 class MQA_identifier {
@@ -50,8 +48,9 @@ class MQA_identifier {
     uint32_t bps = 0;
     FLAC__uint64 decoded_samples = 0;
     std::vector<std::array<const FLAC__int32, 2>> samples;
-    std::string mqa_endoder;
+    std::string mqa_encoder;
     uint32_t original_sample_rate = 0;
+
 
     explicit MyDecoder(std::string file) : FLAC::Decoder::File(), file_(std::move(file)) {};
 
@@ -77,6 +76,7 @@ class MQA_identifier {
 
  public:
   explicit MQA_identifier(std::string file) : file_(std::move(file)), decoder(file_), isMQA_(false) {}
+
 
   bool detect();
 
@@ -118,22 +118,18 @@ void MQA_identifier::MyDecoder::metadata_callback(const ::FLAC__StreamMetadata *
             const auto comment = reinterpret_cast<char *>(metadata->data.vorbis_comment.comments[i].entry);
 
             if (std::strncmp("MQAENCODER", comment, 10) == 0)
-                this->mqa_endoder =
+                this->mqa_encoder =
                     std::string(comment + 10, comment + metadata->data.vorbis_comment.comments[i].length);
-
-            else if (std::strncmp("ORIGINALSAMPLERATE", comment, 18) == 0)
-                this->original_sample_rate = std::stoul(comment + 19);
-
-            else if (std::strncmp("MQASAMPLERATE", comment, 13) == 0)
-                this->original_sample_rate = std::stoul(comment + 14);
         }
     }
 
 }
 
+
 void MQA_identifier::MyDecoder::error_callback(::FLAC__StreamDecoderErrorStatus status) {
     std::cerr << "Got error callback: " << FLAC__StreamDecoderErrorStatusString[status] << "\n";
 }
+
 
 ::FLAC__StreamDecoderInitStatus MQA_identifier::MyDecoder::decode() {
     bool ok = true;
@@ -155,6 +151,7 @@ void MQA_identifier::MyDecoder::error_callback(::FLAC__StreamDecoderErrorStatus 
     while (this->decoded_samples < this->sample_rate * 3 /* read only 3 first seconds */ )
         ok = this->process_single();
 
+
     if (!ok) {
         std::cerr << "decoding FAILED\n";
         std::cerr << this->get_state().resolved_as_cstring(*this);
@@ -166,50 +163,51 @@ void MQA_identifier::MyDecoder::error_callback(::FLAC__StreamDecoderErrorStatus 
 bool MQA_identifier::detect() {
     this->decoder.decode();
 
-    for (auto p = 0u; p < this->decoder.bps; p++) {
-        uint64_t buffer = 0;
-        for (const auto &s: this->decoder.samples) {
-            buffer |=
-                ((static_cast<uint32_t>(s[0]) ^ static_cast<uint32_t>(s[1])) >> p) & 1u;  //static_cast for clang-tidy
-            if (buffer == 0xbe0498c88) {        // MQA magic word
-                this->isMQA_ = true;
+    uint64_t buffer = 0;
+    const auto pos = (this->decoder.bps - 16u); // aim for 16th bit
+    for (const auto &s: this->decoder.samples) {
+        buffer |= ((static_cast<uint32_t>(s[0]) ^ static_cast<uint32_t>(s[1])) >> pos) & 1u;  //cast for clang-tidy
 
-                // Get Original Sample Rate
-                unsigned char orsf = 0;
-                for (auto m = 3u; m < 7; m++) { // Skip 2 bits nd get next 4
-                    auto cur = *(&s + m);
-                    auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> p) & 1u;
-                    orsf |= j << (6u - m);
-                }
-                try {
-                    if (decoder.original_sample_rate != 0
-                        && decoder.original_sample_rate != OriginalSampleRateTable.at(orsf))
-                        std::cerr << decoder.original_sample_rate << "\n";
-                    this->decoder.original_sample_rate = OriginalSampleRateTable.at(orsf);
-                } catch (std::exception &e) {
-                    std::cerr << e.what() << "\n";
-                }
+        if (buffer == 0xbe0498c88) {        // MQA magic word
+            this->isMQA_ = true;
 
-                // We are done return true
-                return true;
-            } else
-                buffer = (buffer << 1u) & 0xFFFFFFFFFu;
-        }
+            // Get Original Sample Rate
+            unsigned char orsf = 0;
+            for (auto m = 3u; m < 7; m++) { // Skip 2 bits nd get next 4
+                auto cur = *(&s + m);
+                auto j =
+                    ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos) & 1u;
+                orsf |= j << (6u - m);
+            }
+            try {
+                this->decoder.original_sample_rate = OriginalSampleRateDecoder(orsf);
+            }
+            catch (std::exception &e) { std::cerr << e.what() << "\n"; }
+            // We are done return true
+            return true;
+
+        } else
+            buffer = (buffer << 1u) & 0xFFFFFFFFFu;
     }
+
     return false;
 }
 
+
 std::string MQA_identifier::getMQA_encoder() const noexcept {
-    return this->decoder.mqa_endoder;
+    return this->decoder.mqa_encoder;
 }
+
 
 uint32_t MQA_identifier::originalSampleRate() const noexcept {
     return this->decoder.original_sample_rate;
 }
 
+
 bool MQA_identifier::isMQA() const noexcept {
     return this->isMQA_;
 }
+
 
 std::string MQA_identifier::filename() const noexcept {
     return this->file_;
