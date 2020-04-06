@@ -8,16 +8,30 @@
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
+#include <string>
 #include <vector>
-
 
 #include "mqa_identifier.h"
 
 namespace fs = std::filesystem;
 
 
+auto getSampleRateString(const uint32_t fs) {
+    std::stringstream ss;
+    if (fs <= 768000)
+        ss << fs / 1000. << "K";
+    else if (fs % 44100 == 0)
+        ss << "DSD" << fs / 44100;
+    else
+        ss << "DSD" << fs / 48000 << "x48";
+
+    return ss.str();
+}
+
+
 /**
- * @short Recurivly scan a directory for .flac files
+ * @short Recursively scan a directory for .flac files
  * @param curDir directory to scan
  * @param files vector to add the file paths
  */
@@ -76,7 +90,7 @@ int main(int argc, char *argv[]) {
         auto id = MQA_identifier(file);
         if (id.detect()) {
             if (id.originalSampleRate())
-                std::cout << "MQA " << id.originalSampleRate() / 1000. << "K \t";
+                std::cout << "MQA " << getSampleRateString(id.originalSampleRate()) << "\t";
             else
                 std::cout << "MQA\t\t";
             std::cout << fs::path(file).filename().string() << "\n";

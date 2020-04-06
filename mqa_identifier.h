@@ -33,7 +33,9 @@ uint32_t OriginalSampleRateDecoder(unsigned c) {
      */
     const uint32_t base = (c & 1u) ? 48000 : 44100;
 
-    const uint32_t multiplier = 1u << (((c >> 3u) & 1u) | (((c >> 2u) & 1u) << 1u) | (((c >> 1u) & 1u) << 2u));
+    uint32_t multiplier = 1u << (((c >> 3u) & 1u) | (((c >> 2u) & 1u) << 1u) | (((c >> 1u) & 1u) << 2u));
+    // Double for DSD
+    if (multiplier > 16) multiplier *= 2;
 
     return base * multiplier;
 }
