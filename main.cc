@@ -84,16 +84,14 @@ int main(int argc, char *argv[]) {
     // Start parsing the files
     size_t count = 0;
     size_t mqa_files = 0;
-    std::cout << "  #\tEncoding\tName\n";
+    std::cout << "  #\tEncoding\t\tName\n";
     for (const auto &file : files) {
         std::cout << std::setw(3) << ++count << "\t";
         auto id = MQA_identifier(file);
         if (id.detect()) {
-            if (id.originalSampleRate())
-                std::cout << "MQA " << getSampleRateString(id.originalSampleRate()) << "\t";
-            else
-                std::cout << "MQA\t\t";
-            std::cout << fs::path(file).filename().string() << "\n";
+            std::cout << "MQA " << (id.isMQAStudio() ? "Studio " : "")
+                      << getSampleRateString(id.originalSampleRate()) << "  \t"
+                      << fs::path(file).filename().string() << "\n";
             mqa_files++;
         } else
             std::cout << "NOT MQA \t" << fs::path(file).filename().string() << "\n";

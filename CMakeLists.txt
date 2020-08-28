@@ -4,7 +4,7 @@ project(MQA_identifier)
 set(CMAKE_CXX_STANDARD 17)
 
 if (NOT (MSVC))
-    set(CMAKE_CXX_FLAGS "-O3 -march=native -Wall -static -static-libstdc++ -ffast-math")
+    set(CMAKE_CXX_FLAGS "-O2 -fpermissive")
 else (NOT (MSVC))
     set(CMAKE_CXX_FLAGS "/O2")
     STRING(REPLACE "/O2" "/Od" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})

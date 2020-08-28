@@ -1,8 +1,8 @@
 /**
- * @file        mqa_identifier.hh
+ * @file        mqa_identifier.h
  * @author      Stavros Avramidis (@purpl3F0x)
  * @date        16/12/2019
- * @copyright   2019 Stavros Avramidis under Apache 2.0 License
+ * @copyright   2019 2.0 License
  * @short       Library to Identify MQA encoding
  */
 
@@ -11,7 +11,6 @@
 #include <array>
 #include <cinttypes>
 #include <cstring>
-#include <iostream>
 #include <map>
 #include <string>
 #include <vector>
@@ -25,7 +24,6 @@
  * @return
  */
 uint32_t OriginalSampleRateDecoder(unsigned c) {
-    if (c > 0b1111u) throw std::logic_error("Invalid bytecode");
     /*
      * If LSB is 0 then base is 44100 else 48000
      * 3 MSB need to be rotated and raised to the power of 2 (so 1, 2, 4, 8, ...)
@@ -75,6 +73,7 @@ class MQA_identifier {
   std::string file_;
   MyDecoder decoder;
   bool isMQA_;
+  bool isMQAStudio_ = false;
 
  public:
   explicit MQA_identifier(std::string file) : file_(std::move(file)), decoder(file_), isMQA_(false) {}
@@ -85,6 +84,7 @@ class MQA_identifier {
   [[nodiscard]] std::string getMQA_encoder() const noexcept;
   [[nodiscard]] uint32_t originalSampleRate() const noexcept;
   [[nodiscard]] bool isMQA() const noexcept;
+  [[nodiscard]] bool isMQAStudio() const noexcept;
   [[nodiscard]] std::string filename() const noexcept;
 };
 
@@ -174,17 +174,25 @@ bool MQA_identifier::detect() {
             this->isMQA_ = true;
 
             // Get Original Sample Rate
-            unsigned char orsf = 0;
-            for (auto m = 3u; m < 7; m++) { // Skip 2 bits nd get next 4
+            uint8_t orsf = 0;
+            for (auto m = 3u; m < 7; m++) { // TODO: this need fix (orsf is 5bits)
                 auto cur = *(&s + m);
                 auto j =
                     ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos) & 1u;
                 orsf |= j << (6u - m);
             }
-            try {
-                this->decoder.original_sample_rate = OriginalSampleRateDecoder(orsf);
+            this->decoder.original_sample_rate = OriginalSampleRateDecoder(orsf);
+
+            // Get MQA Studio
+            uint8_t provenance = 0u;
+            for (auto m = 29u; m < 34; m++) {
+                auto cur = *(&s + m);
+                auto j =
+                    ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos) & 1u;
+                provenance |= j << (33u - m);
             }
-            catch (std::exception &e) { std::cerr << e.what() << "\n"; }
+            this->isMQAStudio_ = provenance > 8;
+
             // We are done return true
             return true;
 
@@ -208,6 +216,11 @@ uint32_t MQA_identifier::originalSampleRate() const noexcept {
 
 bool MQA_identifier::isMQA() const noexcept {
     return this->isMQA_;
+}
+
+
+bool MQA_identifier::isMQAStudio() const noexcept {
+    return this->isMQAStudio_;
 }
 
 
