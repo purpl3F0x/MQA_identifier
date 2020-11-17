@@ -11,7 +11,7 @@ else (NOT (MSVC))
 endif ()
 
 find_library(FLAC++_LIBRARIES NAMES FLAC++ FLAC)
-find_library(OGG NAMES OGG)
+find_library(ogg NAMES ogg)
 
 add_executable(${PROJECT_NAME} main.cc)
-target_link_libraries(${PROJECT_NAME} FLAC++ FLAC OGG)
+target_link_libraries(${PROJECT_NAME} FLAC++ FLAC ogg)
