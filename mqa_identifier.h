@@ -102,7 +102,7 @@ class MQA_identifier {
 
     /* write decoded PCM samples */
     for (size_t i = 0; i < frame->header.blocksize; i++)
-        this->samples.push_back((std::array<const FLAC__int32, 2>) {buffer[0][i], buffer[1][i]});
+        this->samples.push_back(std::array < const FLAC__int32, 2 > {buffer[0][i], buffer[1][i]});
 
     return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 }
@@ -164,21 +164,24 @@ void MQA_identifier::MyDecoder::error_callback(::FLAC__StreamDecoderErrorStatus 
 
 bool MQA_identifier::detect() {
     this->decoder.decode();
-
+    //check the bufer three times from the P,P+1,P+2 value
     uint64_t buffer = 0;
+    uint64_t buffer1 = 0;
+    uint64_t buffer2 = 0;
     const auto pos = (this->decoder.bps - 16u); // aim for 16th bit
+
     for (const auto &s: this->decoder.samples) {
-        buffer |= ((static_cast<uint32_t>(s[0]) ^ static_cast<uint32_t>(s[1])) >> pos) & 1u;  //cast for clang-tidy
+        buffer  |= ((static_cast<uint32_t>(s[0]) ^ static_cast<uint32_t>(s[1])) >> pos    ) & 1u;
+        buffer1 |= ((static_cast<uint32_t>(s[0]) ^ static_cast<uint32_t>(s[1])) >> pos + 1) & 1u;
+        buffer2 |= ((static_cast<uint32_t>(s[0]) ^ static_cast<uint32_t>(s[1])) >> pos + 2) & 1u;
 
         if (buffer == 0xbe0498c88) {        // MQA magic word
             this->isMQA_ = true;
-
             // Get Original Sample Rate
             uint8_t orsf = 0;
             for (auto m = 3u; m < 7; m++) { // TODO: this need fix (orsf is 5bits)
                 auto cur = *(&s + m);
-                auto j =
-                    ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos) & 1u;
+                auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos) & 1u;
                 orsf |= j << (6u - m);
             }
             this->decoder.original_sample_rate = OriginalSampleRateDecoder(orsf);
@@ -187,8 +190,53 @@ bool MQA_identifier::detect() {
             uint8_t provenance = 0u;
             for (auto m = 29u; m < 34; m++) {
                 auto cur = *(&s + m);
-                auto j =
-                    ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos) & 1u;
+                auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos) & 1u;
+                provenance |= j << (33u - m);
+            }
+            this->isMQAStudio_ = provenance > 8;
+
+            // We are done return true
+            return true;
+        } else
+        if (buffer1 == 0xbe0498c88) {        // MQA magic word
+            this->isMQA_ = true;
+            // Get Original Sample Rate
+            uint8_t orsf = 0;
+            for (auto m = 3u; m < 7; m++) { // TODO: this need fix (orsf is 5bits)
+                auto cur = *(&s + m);
+                auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos + 1) & 1u;
+                orsf |= j << (6u - m);
+            }
+            this->decoder.original_sample_rate = OriginalSampleRateDecoder(orsf);
+
+            // Get MQA Studio
+            uint8_t provenance = 0u;
+            for (auto m = 29u; m < 34; m++) {
+                auto cur = *(&s + m);
+                auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos + 1) & 1u;
+                provenance |= j << (33u - m);
+            }
+            this->isMQAStudio_ = provenance > 8;
+
+            // We are done return true
+            return true;
+        } else
+        if (buffer2 == 0xbe0498c88) {        // MQA magic word
+            this->isMQA_ = true;
+            // Get Original Sample Rate
+            uint8_t orsf = 0;
+            for (auto m = 3u; m < 7; m++) { // TODO: this need fix (orsf is 5bits)
+                auto cur = *(&s + m);
+                auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos + 2) & 1u;
+                orsf |= j << (6u - m);
+            }
+            this->decoder.original_sample_rate = OriginalSampleRateDecoder(orsf);
+
+            // Get MQA Studio
+            uint8_t provenance = 0u;
+            for (auto m = 29u; m < 34; m++) {
+                auto cur = *(&s + m);
+                auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos + 2) & 1u;
                 provenance |= j << (33u - m);
             }
             this->isMQAStudio_ = provenance > 8;
@@ -197,9 +245,10 @@ bool MQA_identifier::detect() {
             return true;
 
         } else
-            buffer = (buffer << 1u) & 0xFFFFFFFFFu;
+        buffer = (buffer << 1u) & 0xFFFFFFFFFu;
+        buffer1 = (buffer1 << 1u) & 0xFFFFFFFFFu;
+        buffer2 = (buffer2 << 1u) & 0xFFFFFFFFFu;
     }
-
     return false;
 }
 

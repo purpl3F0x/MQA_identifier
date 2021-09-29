@@ -5,7 +5,12 @@
  * @copyright   2019 Stavros Avramidis under Apache 2.0 License
  */
 
-#include <filesystem>
+#ifdef __ANDROID__
+ #include <boost/filesystem.hpp>
+#else
+ #include <filesystem>
+#endif
+
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -13,9 +18,13 @@
 #include <vector>
 
 #include "mqa_identifier.h"
+#include <FLAC++/metadata.h>
 
-namespace fs = std::filesystem;
-
+#ifdef __ANDROID__
+ namespace fs = boost::filesystem;
+#else
+ namespace fs = std::filesystem; // for old VS use namespace fs = std::experimental::filesystem;
+#endif
 
 auto getSampleRateString(const uint32_t fs) {
     std::stringstream ss;
@@ -85,16 +94,93 @@ int main(int argc, char *argv[]) {
     size_t count = 0;
     size_t mqa_files = 0;
     std::cout << "  #\tEncoding\t\tName\n";
-    for (const auto &file : files) {
+    for (const auto &file : files) 
+    {
         std::cout << std::setw(3) << ++count << "\t";
-        auto id = MQA_identifier(file);
-        if (id.detect()) {
+
+        //auto id = MQA_identifier(file);
+        MQA_identifier id(file);
+        if (id.detect())
+        {
             std::cout << "MQA " << (id.isMQAStudio() ? "Studio " : "")
                       << getSampleRateString(id.originalSampleRate()) << "  \t"
                       << fs::path(file).filename().string() << "\n";
             mqa_files++;
-        } else
+
+            //////////////////////////////////////////
+            // read a file using FLAC::Metadata::Chain class
+            FLAC::Metadata::Chain chain;
+            chain.read(file.c_str());
+            // now, find vorbis comment block and make changes in it
+            {
+                FLAC::Metadata::Iterator iterator;
+                iterator.init(chain);
+                // find vorbis comment block
+                FLAC::Metadata::VorbisComment* vcBlock = 0;
+                do {
+                    FLAC::Metadata::Prototype* block = iterator.get_block();
+                    if (block->get_type() == FLAC__METADATA_TYPE_VORBIS_COMMENT) {
+                        vcBlock = (FLAC::Metadata::VorbisComment*) block;
+                        break;
+                    }
+                } while (iterator.next());
+                // if not found, create a new one
+                if (vcBlock == 0) {
+                    // create a new block
+                    vcBlock = new FLAC::Metadata::VorbisComment();
+                    // move iterator to the end
+                    while (iterator.next()) {
+                    }
+                    // insert a new block at the end
+                    if (!iterator.insert_block_after(vcBlock)) {
+                        delete vcBlock;
+                    }
+                }
+                //if the tags (ENCODER,MQAENCODER,ORIGINALSAMPLERATE) is found, we simply delete it
+                int ENCODERs = -1;
+                int MQAENCODERs = -1;
+                int ORIGINALSAMPLERATEs = -1;
+                for (int i = 0; i < vcBlock->get_num_comments(); ++i)
+                {
+                    int ENCODER = vcBlock->find_entry_from(i, "ENCODER");
+                    if (ENCODER > -1)
+                        ENCODERs = ENCODER;
+                }
+                if (ENCODERs > -1)
+                {
+                    vcBlock->delete_comment(ENCODERs);
+                }
+                for (int i = 0; i < vcBlock->get_num_comments(); ++i)
+                {
+                    int MQAENCODER = vcBlock->find_entry_from(i, "MQAENCODER");
+                    if (MQAENCODER > -1)
+                        MQAENCODERs = MQAENCODER;
+                }
+                if (MQAENCODERs > -1)
+                {
+                    vcBlock->delete_comment(MQAENCODERs);
+                }
+                for (int i = 0; i < vcBlock->get_num_comments(); ++i)
+                {
+                    int ORIGINALSAMPLERATE = vcBlock->find_entry_from(i, "ORIGINALSAMPLERATE");
+                    if (ORIGINALSAMPLERATE > -1)
+                        ORIGINALSAMPLERATEs = ORIGINALSAMPLERATE;
+                }
+                if (ORIGINALSAMPLERATEs > -1)
+                {
+                    vcBlock->delete_comment(ORIGINALSAMPLERATEs);
+                }
+                //add tags (ENCODER,MQAENCODER,ORIGINALSAMPLERATE) to the flac file
+                std::string OrigSamp = std::to_string(id.originalSampleRate());
+                vcBlock->append_comment(FLAC::Metadata::VorbisComment::Entry("ENCODER", "MQAEncode v1.1, 2.3.3+800 (a505918), F8EC1703-7616-45E5-B81E-D60821434062, Dec 01 2017 22:19:30"));
+                vcBlock->append_comment(FLAC::Metadata::VorbisComment::Entry("MQAENCODER", "MQAEncode v1.1, 2.3.3+800 (a505918), F8EC1703-7616-45E5-B81E-D60821434062, Dec 01 2017 22:19:30"));
+                vcBlock->append_comment(FLAC::Metadata::VorbisComment::Entry("ORIGINALSAMPLERATE", OrigSamp.c_str()));
+            }
+            chain.write();//save flac file
+        } 
+        else
             std::cout << "NOT MQA \t" << fs::path(file).filename().string() << "\n";
+
     }
 
     std::cout << "\n**************************************************\n";
