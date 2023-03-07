@@ -115,6 +115,7 @@ int main(int argc, char *argv[]) {
                       << fs::path(file).filename().string() << "\n";
             mqa_files++;
 
+            // add tags if use flag --add-mqaencoder and -rw if yor want rewrite existing ones
 			if (add_mqaencoder) 
 			{
 				//////////////////////////////////////////
