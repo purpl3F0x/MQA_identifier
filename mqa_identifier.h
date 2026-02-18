@@ -179,10 +179,10 @@ bool MQA_identifier::detect() {
             this->isMQA_ = true;
             // Get Original Sample Rate
             uint8_t orsf = 0;
-            for (auto m = 3u; m < 7; m++) { // TODO: this need fix (orsf is 5bits)
+            for (auto m = 3u; m < 8; m++) { // TODO: this need fix (orsf is 5bits)
                 auto cur = *(&s + m);
                 auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos) & 1u;
-                orsf |= j << (6u - m);
+                orsf |= j << (7u - m);
             }
             this->decoder.original_sample_rate = OriginalSampleRateDecoder(orsf);
 
@@ -202,10 +202,10 @@ bool MQA_identifier::detect() {
             this->isMQA_ = true;
             // Get Original Sample Rate
             uint8_t orsf = 0;
-            for (auto m = 3u; m < 7; m++) { // TODO: this need fix (orsf is 5bits)
+            for (auto m = 3u; m < 8; m++) { // TODO: this need fix (orsf is 5bits)
                 auto cur = *(&s + m);
                 auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos + 1) & 1u;
-                orsf |= j << (6u - m);
+                orsf |= j << (7u - m);
             }
             this->decoder.original_sample_rate = OriginalSampleRateDecoder(orsf);
 
@@ -225,10 +225,10 @@ bool MQA_identifier::detect() {
             this->isMQA_ = true;
             // Get Original Sample Rate
             uint8_t orsf = 0;
-            for (auto m = 3u; m < 7; m++) { // TODO: this need fix (orsf is 5bits)
+            for (auto m = 3u; m < 8; m++) { // TODO: this need fix (orsf is 5bits)
                 auto cur = *(&s + m);
                 auto j = ((static_cast<uint32_t>(cur[0]) ^ static_cast<uint32_t>(cur[1])) >> pos + 2) & 1u;
-                orsf |= j << (6u - m);
+                orsf |= j << (7u - m);
             }
             this->decoder.original_sample_rate = OriginalSampleRateDecoder(orsf);
 
